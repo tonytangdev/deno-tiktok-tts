@@ -1,4 +1,5 @@
 import { decode64ToString } from "https://deno.land/x/base64to@v0.0.2/mod.ts";
+import { sleepRandomAmountOfSeconds } from "https://deno.land/x/sleep/mod.ts";
 
 const API_URL = "https://tiktok-tts.weilnet.workers.dev/api/generation";
 
@@ -79,14 +80,14 @@ async function callAPI(text: string, voice: string) {
   return mp3;
 }
 
-function writeMP3File(mp3: string, filename = "sound.mp3") {
+function writeMP3File(mp3: string, index: number) {
   const length = mp3.length;
   const bytes = new Uint8Array(length);
   for (let index = 0; index < length; index++) {
     bytes[index] = mp3.charCodeAt(index);
   }
 
-  Deno.writeFileSync(filename, bytes);
+  Deno.writeFileSync(`audio-${index}.mp3`, bytes);
 }
 
 async function main() {
@@ -97,10 +98,36 @@ async function main() {
   const text = Deno.args[1];
   if (!text) throw "A text must be passed as the second argument.";
 
-  const mp3 = await callAPI(text, voice);
+  const textAsArr = text.split(" ");
 
-  const filePath = Deno.args[2];
-  writeMP3File(mp3, filePath);
+  const texts = [];
+  let j = 0;
+  let currentSentence = "";
+  for (let index = 0; index < textAsArr.length; index++) {
+    const word = textAsArr[index];
+    const newSentence = `${currentSentence} ${word}`;
+
+    if (newSentence.length > 250 || index === textAsArr.length - 1) {
+      texts[j] = `${newSentence}`;
+      currentSentence = "";
+      j++;
+    } else {
+      currentSentence += ` ${word}`;
+    }
+  }
+
+  let mp3s = "";
+  for (let index = 0; index < texts.length; index++) {
+    if (index !== 0) {
+      await sleepRandomAmountOfSeconds(5, 10);
+    }
+    const text = texts[index];
+    const mp3 = await callAPI(text, voice);
+
+    mp3s += mp3;
+    writeMP3File(mp3s, index);
+  }
+
 }
 
 main();
